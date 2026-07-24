@@ -1,5 +1,6 @@
 import tkinter as tk
 import customtkinter as ctk
+import typer
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("green")
@@ -72,6 +73,17 @@ class App:
 
         self.build_titlebar()
         self.build_ui()
+
+    def start_typing(self):
+
+        text = self.textbox.get("1.0", "end-1c")
+
+        delay = float(self.delay_slider.get()) / 1000
+
+        typer.type_text(
+            text=text,
+            delay=delay
+        )
 
     def _set_neon_icon(self):
         icon = tk.PhotoImage(width=32, height=32)
@@ -293,21 +305,29 @@ class App:
         action_row.grid_columnconfigure(0, weight=1)
         action_row.grid_columnconfigure(1, weight=0)
 
+        
         # Subtle, professional helpful hint filling the bottom left space
         ctk.CTkLabel(
             action_row,
             text="ⓘ Tip: Review instructions before starting your first run.",
-            font=FONT_CAPTION,
+            font=("Arial", 16),
             text_color=INK_SOFT,
             anchor="w"
         ).grid(row=0, column=0, sticky="w", padx=(4, 0))
 
         self.start_button = ctk.CTkButton(
-            action_row, text="Start Typing",
-            fg_color=GREEN, hover_color=GREEN_DEEP, text_color="#0B0D10",
-            height=34, width=150, corner_radius=8, font=("Arial", 13, "bold"),
-            border_width=0,
+            action_row,
+            text="Save",
+            fg_color=GREEN,
+            hover_color=GREEN_DEEP,
+            text_color="#0B0D10",
+            height=34,
+            width=150,
+            corner_radius=8,
+            font=("Arial",13,"bold"),
+            command=self.start_typing #this is what activates the function
         )
+
         self.start_button.grid(row=0, column=1, sticky="e")
 
     # =================================================================
