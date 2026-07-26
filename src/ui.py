@@ -5,9 +5,9 @@ import typer
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("green")
 
-# =====================================================================
+
 # TOKENS — one dark charcoal family top to bottom.
-# =====================================================================
+
 BG           = "#0B0D10"   # root — the desk
 CARD         = "#15181D"   # card surface, one step lighter than BG
 CARD_BORDER  = "#262A31"   # quiet edge between card and desk
@@ -74,16 +74,23 @@ class App:
         self.build_titlebar()
         self.build_ui()
 
-    def start_typing(self):
+    def save_configuration(self):
 
-        text = self.textbox.get("1.0", "end-1c")
+        text = self.textbox.get("1.0","end-1c")
 
-        delay = float(self.delay_slider.get()) / 1000
+        delay = float(self.delay_slider.get())/1000
 
-        typer.type_text(
-            text=text,
-            delay=delay
+        start = self._hotkey_values["start"]
+
+        stop = self._hotkey_values["stop"]
+
+        typer.save_configuration(
+            text,
+            delay,
+            start,
+            stop
         )
+        
 
     def _set_neon_icon(self):
         icon = tk.PhotoImage(width=32, height=32)
@@ -91,9 +98,8 @@ class App:
         self._icon_ref = icon
         self.root.iconphoto(True, icon)
 
-    # =================================================================
     # Custom titlebar — matches the app palette instead of the OS default
-    # =================================================================
+
     def build_titlebar(self):
         bar = ctk.CTkFrame(self.root, fg_color=CARD, height=40, corner_radius=0)
         bar.pack(side="top", fill="x")
