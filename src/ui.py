@@ -331,7 +331,7 @@ class App:
             width=150,
             corner_radius=8,
             font=("Arial",13,"bold"),
-            command=self.start_typing #this is what activates the function
+            command=self.save_configuration #this is what activates the function
         )
 
         self.start_button.grid(row=0, column=1, sticky="e")
