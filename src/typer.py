@@ -29,7 +29,7 @@ def save_configuration(text, delay, start_key, stop_key, ide_mode=True):
     global saved_ide_mode
 
     saved_text = text
-    saved_delay = max(float(delay),0.006)
+    saved_delay = max(float(delay),0.01)
     saved_start_key = start_key.lower()
     saved_stop_key = stop_key.lower()
     saved_ide_mode = ide_mode
@@ -153,11 +153,12 @@ def type_text(text, delay=0.01, ide_mode=True):
             if not first_line:
                 # Move to the next line
                 pyautogui.press("enter")
-                time.sleep(0.09)
+                time.sleep(0.05)
                 
-                # Only try to wipe out auto-indents if we are in RAW mode!
-                if not ide_mode:
-                    clear_auto_indent()
+                # In IDE mode, we might need a brief pause for the editor to format.
+                # In RAW mode, we NEVER wipe the line—we just let Enter do its job!
+                if ide_mode:
+                    time.sleep(0.05)
 
             type_line(line, delay, ide_mode)
             first_line = False
@@ -165,8 +166,7 @@ def type_text(text, delay=0.01, ide_mode=True):
         print("Finished Typing!")
     finally:
         typing = False
-
-
+        
 def start_typing():
     global typing
     global typing_thread
