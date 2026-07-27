@@ -1,3 +1,4 @@
+import ctypes
 import tkinter as tk
 import customtkinter as ctk
 import typer
@@ -56,8 +57,8 @@ def format_keysym(keysym: str) -> str:
 class App:
     def __init__(self):
         self.root = ctk.CTk()
-        self.root.geometry("950x720")
-        self.root.minsize(780, 580)
+        self.root.geometry("1080x750")
+        self.root.minsize(900, 600)
         self.root.configure(fg_color=BG)
 
         # Custom titlebar needs the native chrome gone.
@@ -70,27 +71,46 @@ class App:
         self._listening = {"start": False, "stop": False}
 
         self._drag_offset = (0, 0)
+        self._is_minimized = False  # Track minimize state for clean restoring
 
         self.build_titlebar()
         self.build_ui()
+        
+        # FIX: Force Windows to display this frameless window in the Taskbar & Alt+Tab
+        self._set_taskbar_presence()
+
+    def _set_taskbar_presence(self):
+        """Forces Windows to display a Taskbar icon and Alt+Tab entry for overrideredirect windows."""
+        try:
+            self.root.update_idletasks()
+            hwnd = ctypes.windll.user32.GetParent(self.root.winfo_id())
+            style = ctypes.windll.user32.GetWindowLongW(hwnd, -20)  # GWL_EXSTYLE = -20
+            style = style & ~0x00000080  # Remove WS_EX_TOOLWINDOW
+            style = style | 0x00040000   # Add WS_EX_APPWINDOW
+            ctypes.windll.user32.SetWindowLongW(hwnd, -20, style)
+            
+            # Briefly withdraw and deiconify so Windows refreshes the taskbar icon list
+            self.root.withdraw()
+            self.root.after(10, self.root.deiconify)
+        except Exception as e:
+            print(f"Taskbar presence fix failed: {e}")
 
     def save_configuration(self):
-
         text = self.textbox.get("1.0","end-1c")
-
         delay = float(self.delay_slider.get())/1000
-
         start = self._hotkey_values["start"]
-
         stop = self._hotkey_values["stop"]
+        
+        # Get boolean from switch (1 = True/IDE Mode, 0 = False/Raw Mode)
+        ide_mode = self.ide_mode_switch.get() == 1
 
         typer.save_configuration(
             text,
             delay,
             start,
-            stop
+            stop,
+            ide_mode
         )
-        
 
     def _set_neon_icon(self):
         icon = tk.PhotoImage(width=32, height=32)
@@ -138,6 +158,7 @@ class App:
             widget.bind("<B1-Motion>", self._do_drag)
 
     def _minimize(self):
+        self._is_minimized = True
         self.root.overrideredirect(False)
         self.root.iconify()
 
@@ -151,8 +172,11 @@ class App:
         self.root.geometry(f"+{x}+{y}")
 
     def _on_restore(self, event=None):
-        if self.root.state() == "normal":
+        # FIX: Only restore borderless mode & taskbar presence if we were explicitly minimized
+        if self._is_minimized and self.root.state() == "normal":
+            self._is_minimized = False
             self.root.overrideredirect(True)
+            self._set_taskbar_presence()
 
     # =================================================================
     def build_ui(self):
@@ -167,14 +191,12 @@ class App:
         # Masthead + Instructions Button (3-Column Perfectly Centered Grid)
         # -------------------------------------------------------
         top = ctk.CTkFrame(body, fg_color="transparent")
-        top.grid(row=0, column=0, sticky="ew", padx=32, pady=(24, 4))
+        top.grid(row=0, column=0, sticky="ew", padx=32, pady=(20, 4))
         
-        # We give col 0 and col 2 identical weights AND identical minimum sizes
         top.grid_columnconfigure(0, weight=1, minsize=150)
         top.grid_columnconfigure(1, weight=0)
         top.grid_columnconfigure(2, weight=1, minsize=150)
 
-        # Invisible dummy spacer on the left guarantees exact mathematical symmetry
         spacer = ctk.CTkFrame(top, fg_color="transparent", width=150, height=34)
         spacer.grid(row=0, column=0, sticky="w")
 
@@ -187,7 +209,6 @@ class App:
             font=FONT_TAGLINE, text_color=GREEN,
         ).pack(pady=(4, 0))
 
-        # Matches Start button dimensions & font, styled as a secondary action
         self.instructions_btn = ctk.CTkButton(
             top,
             text="Instructions",
@@ -215,14 +236,14 @@ class App:
             body, fg_color=CARD, corner_radius=14,
             border_width=1, border_color=CARD_BORDER,
         )
-        self.main.grid(row=1, column=0, sticky="nsew", padx=32, pady=16)
+        self.main.grid(row=1, column=0, sticky="nsew", padx=32, pady=12)
         self.main.grid_columnconfigure(0, weight=1)
         self.main.grid_rowconfigure(1, weight=1)
 
         ctk.CTkLabel(
             self.main, text="Paste Your Text", anchor="w",
             font=FONT_LABEL, text_color=INK,
-        ).grid(row=0, column=0, sticky="w", padx=22, pady=(20, 8))
+        ).grid(row=0, column=0, sticky="w", padx=22, pady=(16, 6))
 
         self.textbox = ctk.CTkTextbox(
             self.main, fg_color=TERM_BG, text_color=GREEN, font=("Consolas", 16),
@@ -234,7 +255,7 @@ class App:
         # Controls
         # -------------------------------------------------------
         controls = ctk.CTkFrame(self.main, fg_color="transparent")
-        controls.grid(row=2, column=0, sticky="ew", padx=22, pady=16)
+        controls.grid(row=2, column=0, sticky="ew", padx=22, pady=14)
         controls.grid_columnconfigure(0, weight=0, minsize=170)
         controls.grid_columnconfigure(1, weight=1)
         controls.grid_columnconfigure(2, weight=0, minsize=90)
@@ -246,7 +267,7 @@ class App:
         ).grid(row=0, column=0, sticky="w")
 
         self.delay_slider = ctk.CTkSlider(
-            controls, from_=1, to=100, number_of_steps=99,
+            controls, from_=0, to=100, number_of_steps=100,
             progress_color=GREEN, button_color=GREEN, button_hover_color=GREEN_DEEP,
             fg_color=CARD_BORDER,
             command=self.on_slider_change,
@@ -264,11 +285,39 @@ class App:
         self.delay_entry.bind("<FocusOut>", self.on_entry_finalize)
         self.delay_entry.bind("<Return>", self.on_entry_finalize)
 
+        # --- IDE Mode Toggle -------------------------------------------
+        ctk.CTkLabel(
+            controls, text="IDE Auto-Indent",
+            font=FONT_LABEL, text_color=INK, anchor="w",
+        ).grid(row=2, column=0, sticky="w", pady=(18, 0))
+
+        toggle_frame = ctk.CTkFrame(controls, fg_color="transparent")
+        toggle_frame.grid(row=2, column=1, columnspan=2, sticky="ew", padx=(15, 0), pady=(18, 0))
+        self.ide_mode_switch = ctk.CTkSwitch(
+            toggle_frame,
+            text="",
+            progress_color=GREEN,
+            button_color=INK,
+            button_hover_color=GREEN_DEEP,
+            fg_color=CARD_BORDER,
+            width=50
+        )
+        self.ide_mode_switch.select()  # Default to ON (IDE Mode)
+        self.ide_mode_switch.pack(side="left")
+
+        ctk.CTkLabel(
+            toggle_frame,
+            text="Turn ON for smart editors (auto-indents & closes brackets). Turn OFF for raw textboxes.",
+            font=FONT_CAPTION,
+            text_color=INK_SOFT,
+            anchor="w"
+        ).pack(side="left", padx=(10, 0))
+
         # --- Hotkeys ---------------------------------------------------
         ctk.CTkLabel(
             controls, text="Hotkeys",
             font=FONT_LABEL, text_color=INK, anchor="w",
-        ).grid(row=1, column=0, sticky="w", pady=(24, 0))
+        ).grid(row=1, column=0, sticky="w", pady=(18, 0))
 
         keys_row = ctk.CTkFrame(
             controls,
@@ -279,7 +328,7 @@ class App:
             column=1,
             columnspan=2,
             sticky="nsew",
-            pady=(20, 8)
+            pady=(14, 4)
         )
         keys_row.grid_columnconfigure(0, weight=1)
         keys_row.grid_columnconfigure(1, weight=0)
@@ -306,17 +355,15 @@ class App:
             column=0,
             columnspan=3,
             sticky="ew",
-            pady=(16, 8)
+            pady=(12, 4)
         )
         action_row.grid_columnconfigure(0, weight=1)
         action_row.grid_columnconfigure(1, weight=0)
 
-        
-        # Subtle, professional helpful hint filling the bottom left space
         ctk.CTkLabel(
             action_row,
             text="ⓘ Tip: Review instructions before starting your first run.",
-            font=("Arial", 16),
+            font=("Arial", 15),
             text_color=INK_SOFT,
             anchor="w"
         ).grid(row=0, column=0, sticky="w", padx=(4, 0))
@@ -331,7 +378,7 @@ class App:
             width=150,
             corner_radius=8,
             font=("Arial",13,"bold"),
-            command=self.save_configuration #this is what activates the function
+            command=self.save_configuration
         )
 
         self.start_button.grid(row=0, column=1, sticky="e")
@@ -445,14 +492,14 @@ Replace this text later.
         text = self.delay_entry.get().strip()
         if not text.isdigit():
             return
-        value = max(1, min(100, int(text)))
+        value = max(0, min(100, int(text)))
         self._syncing = True
         self.delay_slider.set(value)
         self._syncing = False
 
     def on_entry_finalize(self, event=None):
         text = self.delay_entry.get().strip()
-        value = int(self.delay_slider.get()) if not text.isdigit() else max(1, min(100, int(text)))
+        value = int(self.delay_slider.get()) if not text.isdigit() else max(0, min(100, int(text)))
         self._syncing = True
         self.delay_entry.delete(0, "end")
         self.delay_entry.insert(0, str(value))

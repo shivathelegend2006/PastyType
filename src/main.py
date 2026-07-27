@@ -6,7 +6,7 @@ import ctypes
 import sys
 import tkinter as tk
 from tkinter import messagebox
-
+    
 
 def is_admin():
     """Returns True if the program is running as Administrator."""
