@@ -105,12 +105,23 @@ def type_line(line, delay, ide_mode=True):
 
         char = text_to_type[i]
 
-        # 1. Hop over closing brackets that the IDE already auto-generated
-        if char in [")", "]", "}"]:
+        # 1. Hop over inline brackets
+        if char in [")", "]"]:
             pyautogui.press("right")
             i += 1
             continue
 
+        # 2. Handle Curly Braces (The Bug Fix v2)
+        elif char == "}":
+            # If the brace is the VERY FIRST character (index 0), it is closing a block.
+            if i == 0:
+                pyautogui.press("down")
+                pyautogui.press("end")
+            else:
+                # If it is anywhere else in the line, it is an inline brace.
+                pyautogui.press("right")
+            i += 1
+            continue
         # 2. Double Quotes Flip-Flop
         elif char == '"':
             if not in_double_quote:
